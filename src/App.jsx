@@ -7,20 +7,21 @@ export default function App() {
   const [isReady, setIsReady] = useState(false);
 
   useEffect(() => {
-    // Safely preload the target image before launching WebXR config
     const targetImageElement = new Image();
+    // Path must cleanly point to your repo structure
     targetImageElement.src = '/webxr-ui-test/target-logo.png'; 
     
     targetImageElement.onload = () => {
-      // Create the XR Store configuration ONLY after the image is fully loaded
       const store = createXRStore({
         mode: 'immersive-ar',
-        requiredFeatures: ['local-floor', 'image-tracking'],
+        // 1. DEMOTED TO OPTIONAL: This prevents the app from crashing if tracking fails to start
+        requiredFeatures: ['local-floor'],
+        optionalFeatures: ['image-tracking'],
         customSessionInit: {
           trackedImages: [
             {
               image: targetImageElement,
-              widthInMeters: 0.15 // 15cm estimation
+              widthInMeters: 0.15 
             }
           ]
         }
@@ -30,8 +31,7 @@ export default function App() {
     };
 
     targetImageElement.onerror = () => {
-      console.error("ERROR: Could not find 'target-logo.png' inside your public folder!");
-      // Fallback configuration without image-tracking so your AR button doesn't freeze
+      console.warn("Target image not found, falling back to basic AR...");
       const fallbackStore = createXRStore({
         mode: 'immersive-ar',
         requiredFeatures: ['local-floor']
@@ -41,12 +41,23 @@ export default function App() {
     };
   }, []);
 
+  // 2. ERROR CAPTURING FUNCTION
+  const handleEnterAR = async () => {
+    if (!xrStore) return;
+    try {
+      await xrStore.enterAR();
+    } catch (error) {
+      // This will throw a popup on your tablet showing exactly why Chrome blocked it
+      alert(`WebXR Session Failed: ${error.name} - ${error.message}`);
+    }
+  };
+
   return (
     <div style={{ width: '100vw', height: '100vh', position: 'relative', background: '#111' }}>
       
       <button
         disabled={!isReady}
-        onClick={() => xrStore && xrStore.enterAR()}
+        onClick={handleEnterAR}
         style={{
           position: 'absolute', bottom: '24px', left: '50%', transform: 'translateX(-50%)',
           zIndex: 10, padding: '12px 24px', fontSize: '16px', fontWeight: 'bold',
@@ -54,7 +65,7 @@ export default function App() {
           cursor: isReady ? 'pointer' : 'not-allowed'
         }}
       >
-        {isReady ? "Enter AR Mode" : "Loading Image Target..."}
+        {isReady ? "Enter AR Mode" : "Loading Engine..."}
       </button>
       
       <Canvas camera={{ position: [0, 0, 0] }}>
@@ -122,7 +133,7 @@ function ObjectTrackedPanel() {
         onPointerOut={() => setHovered(false)}
         onClick={(e) => {
           e.stopPropagation();
-          alert("Object interactive panel clicked!");
+          alert("Panel interaction success!");
         }}
       >
         <planeGeometry args={[0.3, 0.1]} />
